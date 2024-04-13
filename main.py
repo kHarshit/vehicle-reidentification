@@ -1,6 +1,7 @@
 from ultralytics import YOLO
 import cv2
 import os
+from deep_sort import DeepSort
 
 model = YOLO("yolov8n.pt")  # load model
 
