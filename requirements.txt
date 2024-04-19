@@ -1,1 +1,3 @@
 ultralytics
+scikit-image
+opencv-python
