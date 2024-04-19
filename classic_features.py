@@ -45,7 +45,7 @@ reference_hog_features = compute_hog_features(reference_image)
 reference_color_histogram = compute_color_histogram(reference_image)
 
 # Similarity thresholds (these values might need tuning based on your specific use case)
-hog_threshold = 0.9  # Adjust based on experimentation
+hog_threshold = 0.5  # Adjust based on experimentation
 histogram_threshold = 0.2
 
 def compare_features(hog1, hog2, hist1, hist2):
@@ -57,21 +57,30 @@ def compare_features(hog1, hog2, hist1, hist2):
     # Check against thresholds
     return hog_distance < hog_threshold and histogram_distance > histogram_threshold
 
+# get vehicle classes: bicycle, car, motorcycle, airplane, bus, train, truck, boat
+# class_list = [1, 2, 3, 4, 5, 6, 7, 8]
+class_list = [2]
 # Tracking and matching
+frame_count = 0  # Initialize a frame counter
 while cap.isOpened():
     success, frame = cap.read()
     if not success:
         break
 
-    results = model.track(frame, show=False, verbose=False, conf=0.4, classes=[2], persist=True)  # Class 2 for cars
+    frame_count += 1  # Increment the frame counter
+    results = model.track(frame, show=False, verbose=False, conf=0.4, classes=class_list, persist=True)
     if results[0].boxes.id is not None:
-        boxes = results[0].boxes.xywh.cpu()
+        boxes = results[0].boxes.xyxy.cpu()  # Use xyxy format
         track_ids = results[0].boxes.id.cpu().numpy().astype(int)
         annotated_frame = results[0].plot()
 
-        for box in boxes:
-            x, y, w, h = map(int, box)
-            crop_img = frame[y:y+h, x:x+w]
+        for i, box in enumerate(boxes):
+            x1, y1, x2, y2 = map(int, box)  # Use xyxy format
+            crop_img = frame[y1:y2, x1:x2]  # Use xyxy format
+            # save image
+            crop_name = f"frame_{frame_count}_ID_{results[0].boxes.id[i]}.jpg"
+            crop_path = os.path.join(save_dir, crop_name)
+            cv2.imwrite(crop_path, crop_img)
             crop_img = cv2.resize(crop_img, standard_size)  # Resize to standard size
 
             # Compute features for the detected vehicle
@@ -83,8 +92,8 @@ while cap.isOpened():
                 # id
                 print(f"Matched vehicle with ID: {track_ids[0]}")
                 # Draw a green rectangle around matched vehicles
-                cv2.rectangle(annotated_frame, (x, y), (x+w, y+h), (0, 255, 0), 2)
-                cv2.putText(annotated_frame, 'Matched', (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
+                cv2.rectangle(annotated_frame, (x1, y1), (x2, y2), (0, 255, 0), 3)  # Use xyxy format
+                cv2.putText(annotated_frame, 'Matched', (x1, y2), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 3)
 
         cv2.imshow("YOLOv8 Tracking", annotated_frame)
         if cv2.waitKey(1) & 0xFF == ord('q'):
