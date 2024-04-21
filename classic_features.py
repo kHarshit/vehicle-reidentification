@@ -7,14 +7,14 @@ from ultralytics import YOLO
 
 # Initialize YOLO model
 model = YOLO("yolov8n.pt")
-cap = cv2.VideoCapture('vid1.mp4')
+cap = cv2.VideoCapture('vid3.mp4')
 
 # Directory for saving images
 save_dir = "images/"
 os.makedirs(save_dir, exist_ok=True)
 
 # Load reference vehicle image and resize
-reference_image_path = 'reference_vehicle.jpg'
+reference_image_path = 'reference_.jpg'
 reference_image = cv2.imread(reference_image_path)
 if reference_image is None:
     raise FileNotFoundError(f"Reference image at {reference_image_path} not found.")
