@@ -1,10 +1,31 @@
 # vehicle-reidentification
+
 Vehicle Reidentification
 
-COCO Vehicle classes: bicycle, car, motorcycle, airplane, bus, train, truck, boat
+# Methods
+
+1. HOG (Histogram of Oriented Gradients)
+2. Histogram (Color Histogram)
+3. DNN (Deep Neural Network)
+
+# Installation
 
 ```
-python tracking/track.py --yolo-model yolo_nas_s --tracking-method deepocsort --classes 1, 2, 3, 4, 5, 6, 7, 8
+pip install -r requirements.txt
 ```
 
-https://www.pexels.com/video/vehicles-driving-on-roadway-5927708/
+# Run
+
+```
+(cs5330) ➜  vehicle-reidentification git:(main) ✗ python main.py -h
+usage: main.py [-h] -i INPUT -r REFERENCE_IMG [-f {hog,histogram,dnn}]
+
+options:
+  -h, --help            show this help message and exit
+  -i INPUT, --input INPUT
+                        path to input video
+  -r REFERENCE_IMG, --reference_img REFERENCE_IMG
+                        path to reference image
+  -f {hog,histogram,dnn}, --feature {hog,histogram,dnn}
+                        Feature type to use for comparison
+```
