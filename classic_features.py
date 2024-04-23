@@ -1,20 +1,26 @@
 import cv2
 import numpy as np
 import os
+import argparse
 from collections import defaultdict
 from skimage.feature import hog
 from ultralytics import YOLO
 
+parser = argparse.ArgumentParser()
+parser.add_argument("-i", "--input", required=True, help="path to input video")
+parser.add_argument("-r", "--reference_img", required=True, help="path to reference image")
+args = parser.parse_args()
+
 # Initialize YOLO model
 model = YOLO("yolov8n.pt")
-cap = cv2.VideoCapture('vid1.mp4')
+cap = cv2.VideoCapture(args.input)
 
 # Directory for saving images
 save_dir = "images/"
 os.makedirs(save_dir, exist_ok=True)
 
 # Load reference vehicle image and resize
-reference_image_path = 'reference_vehicle.jpg'
+reference_image_path = args.reference_img
 reference_image = cv2.imread(reference_image_path)
 if reference_image is None:
     raise FileNotFoundError(f"Reference image at {reference_image_path} not found.")
@@ -27,6 +33,9 @@ reference_image = cv2.resize(reference_image, standard_size)
 
 # Functions to compute features
 def compute_hog_features(image):
+    """
+    Compute HOG features for the image
+    """
     image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)  # Convert to grayscale
     features, _ = hog(image, orientations=9, pixels_per_cell=(8, 8),
                       cells_per_block=(2, 2), visualize=True)
@@ -35,6 +44,9 @@ def compute_hog_features(image):
     return features
 
 def compute_color_histogram(image, bins=32):
+    """
+    Compute a color histogram for the image
+    """
     histogram = [cv2.calcHist([image], [i], None, [bins], [0, 256]) for i in range(image.shape[2])]
     histogram = np.concatenate(histogram)
     histogram = cv2.normalize(histogram, histogram).flatten()
