@@ -5,15 +5,38 @@ import argparse
 from collections import defaultdict
 from skimage.feature import hog
 from ultralytics import YOLO
+import torch
+from torchvision import models, transforms
+from sklearn.metrics.pairwise import cosine_similarity
 
 parser = argparse.ArgumentParser()
 parser.add_argument("-i", "--input", required=True, help="path to input video")
 parser.add_argument("-r", "--reference_img", required=True, help="path to reference image")
+parser.add_argument("-f", "--feature", default="hog", choices=["hog", "histogram", "dnn"],
+                    help="Feature type to use for comparison (hog or histogram)")
 args = parser.parse_args()
 
 # Initialize YOLO model
 model = YOLO("yolov8n.pt")
 cap = cv2.VideoCapture(args.input)
+
+if args.feature == "dnn":
+    # Load a pre-trained ResNet model
+    model_resnet = models.resnet50(pretrained=True)
+    model_resnet.eval()  # Set model to evaluation mode
+
+# Function to preprocess image and extract features
+def extract_dnn_features(image):
+    transform = transforms.Compose([
+        transforms.ToPILImage(),
+        transforms.Resize((224, 224)),
+        transforms.ToTensor(),
+        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+    ])
+    image = transform(image).unsqueeze(0)  # Add batch dimension
+    with torch.no_grad():
+        features = model_resnet(image)
+    return features.flatten()
 
 # Directory for saving images
 save_dir = "images/"
@@ -52,9 +75,20 @@ def compute_color_histogram(image, bins=32):
     histogram = cv2.normalize(histogram, histogram).flatten()
     return histogram
 
+def cosine_distance(feature1, feature2):
+    """
+    Compute cosine distance between two features.
+    """
+    # Reshape features to 2D array for sklearn function
+    feature1 = feature1.reshape(1, -1)
+    feature2 = feature2.reshape(1, -1)
+    return 1 - cosine_similarity(feature1, feature2)[0][0]
+
 # Compute features for the reference image
 reference_hog_features = compute_hog_features(reference_image)
 reference_color_histogram = compute_color_histogram(reference_image)
+if args.feature == "dnn":
+    reference_dnn_features = extract_dnn_features(reference_image)
 
 # Similarity thresholds (these values might need tuning based on your specific use case)
 hog_threshold = 0.5  # Adjust based on experimentation
@@ -98,14 +132,19 @@ while cap.isOpened():
             # Compute features for the detected vehicle
             hog_features = compute_hog_features(crop_img)
             color_histogram = compute_color_histogram(crop_img)
+            if args.feature == "dnn":
+                dnn_features = extract_dnn_features(crop_img)
 
-            # Compare features
-            if compare_features(hog_features, reference_hog_features, color_histogram, reference_color_histogram):
-                # id
-                print(f"Matched vehicle with ID: {track_ids[0]}")
-                # Draw a green rectangle around matched vehicles
-                cv2.rectangle(annotated_frame, (x1, y1), (x2, y2), (0, 255, 0), 3)  # Use xyxy format
-                cv2.putText(annotated_frame, 'Matched', (x1, y2), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 3)
+                # Compare features
+                # if compare_features(hog_features, reference_hog_features, color_histogram, reference_color_histogram):
+                cosine_dist = cosine_distance(dnn_features, reference_dnn_features)
+                if cosine_dist < 0.1:
+                    # id
+                    print(f"Matched vehicle with ID: {track_ids[0]}")
+                    print(f"cosine distance: {cosine_dist}")
+                    # Draw a green rectangle around matched vehicles
+                    cv2.rectangle(annotated_frame, (x1, y1), (x2, y2), (0, 255, 0), 3)  # Use xyxy format
+                    cv2.putText(annotated_frame, 'Matched', (x1, y2), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 3)
 
         cv2.imshow("YOLOv8 Tracking", annotated_frame)
         if cv2.waitKey(1) & 0xFF == ord('q'):
