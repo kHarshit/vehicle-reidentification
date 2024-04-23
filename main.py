@@ -1,3 +1,8 @@
+"""
+@brief: Vehicle reidentification using YOLOv8 and feature-based similarity
+@author: Harshit Kumar, Khushi Neema
+"""
+
 import cv2
 import os
 import argparse
@@ -5,16 +10,6 @@ from ultralytics import YOLO
 from torchvision import models
 from feature_extraction import *
 from similarity import *
-
-"""
-Vehicle Reid
-
-# MEHTODS  
-1. HOG (Histogram of Oriented Gradients)
-2. Histogram (Color Histogram)
-3. DNN (Deep Neural Network)
-
-"""
 
 parser = argparse.ArgumentParser()
 parser.add_argument("-i", "--input", required=True, help="path to input video")

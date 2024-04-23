@@ -1,3 +1,8 @@
+"""
+@brief: Feature extraction functions for vehicle reidentification
+@author: Harshit Kumar, Khushi Neema
+"""
+
 import cv2
 import numpy as np
 from skimage.feature import hog
