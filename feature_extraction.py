@@ -63,3 +63,18 @@ def extract_dnn_features(model, image):
     with torch.no_grad():
         features = model(image)
     return features.flatten()
+
+def extract_torchreid_features(model, image):
+    """
+    Extract features using Torchreid feature extractor
+
+    Parameters:
+    model (torch.nn.Module): Pre-trained model
+    image (np.ndarray): Input image
+
+    Returns:
+    np.ndarray: Extracted features
+    """
+    features = model(image)
+
+    return features.flatten()

@@ -5,3 +5,7 @@ torch
 torchvision
 scikit-learn
 numpy
+torchreid
+gdown
+tensorboard
+git+https://github.com/KaiyangZhou/deep-person-reid.git

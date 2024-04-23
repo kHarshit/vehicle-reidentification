@@ -8,13 +8,14 @@ import os
 import argparse
 from ultralytics import YOLO
 from torchvision import models
+from torchreid.utils import FeatureExtractor
 from feature_extraction import *
 from similarity import *
 
 parser = argparse.ArgumentParser()
 parser.add_argument("-i", "--input", required=True, help="path to input video")
 parser.add_argument("-r", "--reference_img", required=True, help="path to reference image")
-parser.add_argument("-f", "--feature", default="hog", choices=["hog", "histogram", "dnn", "composite"],
+parser.add_argument("-f", "--feature", default="hog", choices=["hog", "histogram", "resnet", "osnet", "composite"],
                     help="Feature type to use for comparison")
 args = parser.parse_args()
 
@@ -37,7 +38,7 @@ reference_image = cv2.imread(reference_image_path)
 if reference_image is None:
     raise FileNotFoundError(f"Reference image at {reference_image_path} not found.")
 
-if not args.feature == "dnn":
+if args.feature == "hog" or args.feature == "histogram":
     # Standardize image size for feature extraction
     standard_size = (128, 64)  # Typical size used for HOG feature extraction
     # Resize reference image
@@ -48,11 +49,18 @@ if args.feature == "hog":
     reference_hog_features = compute_hog_features(reference_image)
 elif args.feature == "histogram":
     reference_color_histogram = compute_color_histogram(reference_image)
-elif args.feature == "dnn":
+elif args.feature == "resnet":
     # Load a pre-trained ResNet model
     model_resnet = models.resnet50(pretrained=True)
     model_resnet.eval()  # Set model to evaluation mode
     reference_dnn_features = extract_dnn_features(model_resnet, reference_image)
+elif args.feature == "osnet":
+    model_torchreid = FeatureExtractor(
+        model_name='osnet_x1_0',
+        model_path='osnet_x1_0_imagenet.pth',
+        device='cpu'
+    )
+    reference_dnn_features = extract_torchreid_features(model_torchreid, reference_image)
 
 # get vehicle classes: bicycle, car, motorcycle, airplane, bus, train, truck, boat
 # class_list = [1, 2, 3, 4, 5, 6, 7, 8]
@@ -81,7 +89,7 @@ while cap.isOpened():
             # cv2.imwrite(crop_path, crop_img)
 
             # resize image for non-DNN features
-            if not args.feature == "dnn":
+            if args.feature == "hog" or args.feature == "histogram":
                 crop_img = cv2.resize(crop_img, standard_size)  # Resize to standard size
 
             match = False
@@ -89,15 +97,19 @@ while cap.isOpened():
                 # Compare HOG features
                 hog_features = compute_hog_features(crop_img)
                 l2_dist = l2_distance(hog_features, reference_hog_features)
-                match = l2_distance(hog_features, reference_hog_features) < hog_threshold
+                match = l2_dist < hog_threshold
             elif args.feature == "histogram":
                 # Compare color histograms
                 color_histogram = compute_color_histogram(crop_img)
                 hist_dist = histogram_distance(color_histogram, reference_color_histogram)
-                match = histogram_distance(color_histogram, reference_color_histogram) > histogram_threshold
-            elif args.feature == "dnn":
+                match = hist_dist > histogram_threshold
+            elif args.feature == "resnet":
                 # Compare DNN features
                 dnn_features = extract_dnn_features(model_resnet, crop_img)
+                cosine_dist = cosine_distance(dnn_features, reference_dnn_features)
+                match = cosine_dist < cosine_threshold
+            elif args.feature == "osnet":
+                dnn_features = extract_torchreid_features(model_torchreid, crop_img)
                 cosine_dist = cosine_distance(dnn_features, reference_dnn_features)
                 match = cosine_dist < cosine_threshold
             
