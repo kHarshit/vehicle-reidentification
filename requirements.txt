@@ -1,3 +1,7 @@
 ultralytics
 scikit-image
 opencv-python
+torch
+torchvision
+scikit-learn
+numpy
