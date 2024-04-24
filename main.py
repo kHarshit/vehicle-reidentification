@@ -16,7 +16,7 @@ from similarity import *
 parser = argparse.ArgumentParser()
 parser.add_argument("-i", "--input", required=True, help="path to input video")
 parser.add_argument("-r", "--reference_img", required=True, help="path to reference image")
-parser.add_argument("-f", "--feature", default="hog", choices=["hog", "histogram", "resnet", "osnet", "composite"],
+parser.add_argument("-f", "--feature", default="hog", choices=["hog", "histogram", "sift", "resnet", "osnet", "composite"],
                     help="Feature type to use for comparison")
 args = parser.parse_args()
 
@@ -39,7 +39,7 @@ reference_image = cv2.imread(reference_image_path)
 if reference_image is None:
     raise FileNotFoundError(f"Reference image at {reference_image_path} not found.")
 
-if args.feature == "hog" or args.feature == "histogram":
+if args.feature == "hog" or args.feature == "histogram" or args.feature == "composite":
     # Standardize image size for feature extraction
     standard_size = (128, 64)  # Typical size used for HOG feature extraction
     # Resize reference image
@@ -47,16 +47,20 @@ if args.feature == "hog" or args.feature == "histogram":
 
 start_time = default_timer()
 # Compute features for the reference image
-if args.feature == "hog":
+if args.feature == "hog" or args.feature == "composite":
     reference_hog_features = compute_hog_features(reference_image)
 elif args.feature == "histogram":
     reference_color_histogram = compute_color_histogram(reference_image)
+elif args.feature =="sift":
+    sift = cv2.SIFT_create()
+    reference_keypoints, reference_descriptors = sift.detectAndCompute(reference_image, None)
+    matcher = cv2.DescriptorMatcher_create(cv2.DESCRIPTOR_MATCHER_BRUTEFORCE)
 elif args.feature == "resnet":
     # Load a pre-trained ResNet model
     model_resnet = models.resnet50(pretrained=True)
     model_resnet.eval()  # Set model to evaluation mode
     reference_dnn_features = extract_dnn_features(model_resnet, reference_image)
-elif args.feature == "osnet":
+elif args.feature == "osnet" or args.feature == "composite":
     model_torchreid = FeatureExtractor(
         model_name='osnet_x1_0',
         model_path='models/osnet_x1_0_imagenet.pth',
@@ -93,14 +97,14 @@ while cap.isOpened():
             # cv2.imwrite(crop_path, crop_img)
 
             # resize image for non-DNN features
-            if args.feature == "hog" or args.feature == "histogram":
+            if args.feature == "hog" or args.feature == "histogram" or args.feature == "composite":
                 crop_img = cv2.resize(crop_img, standard_size)  # Resize to standard size
 
             match = False
             current_feature_time = 0.0
             # time for feature extraction
             start_time = default_timer()
-            if args.feature == "hog":
+            if args.feature == "hog" or args.feature == "composite":
                 # Compare HOG features
                 hog_features = compute_hog_features(crop_img)
                 l2_dist = l2_distance(hog_features, reference_hog_features)
@@ -110,15 +114,27 @@ while cap.isOpened():
                 color_histogram = compute_color_histogram(crop_img)
                 hist_dist = histogram_distance(color_histogram, reference_color_histogram)
                 match = hist_dist > histogram_threshold
+            elif args.feature=="sift":
+                #Compare SIFT features
+                keypoints, descriptors = sift.detectAndCompute(crop_img, None)
+                if descriptors is not None and reference_descriptors is not None:
+                    matches = matcher.knnMatch(reference_descriptors, descriptors, k=2)
+                    # Apply ratio test
+                    good_matches = []
+                    for m, n in matches:
+                        if m.distance < 0.7 * n.distance:
+                            good_matches.append(m)
+                    # Check if enough good matches were found
+                    match = len(good_matches) > 0.2 * len(reference_descriptors)
             elif args.feature == "resnet":
                 # Compare DNN features
                 dnn_features = extract_dnn_features(model_resnet, crop_img)
-                cosine_dist = cosine_distance(dnn_features, reference_dnn_features)
-                match = cosine_dist < cosine_threshold
-            elif args.feature == "osnet":
+                resnet_cosine_dist = cosine_distance(dnn_features, reference_dnn_features)
+                match = resnet_cosine_dist < cosine_threshold
+            elif args.feature == "osnet" or args.feature == "composite":
                 dnn_features = extract_torchreid_features(model_torchreid, crop_img)
-                cosine_dist = cosine_distance(dnn_features, reference_dnn_features)
-                match = cosine_dist < cosine_threshold
+                osnet_cosine_dist = cosine_distance(dnn_features, reference_dnn_features)
+                match = osnet_cosine_dist < cosine_threshold
             end_time = default_timer()
             current_feature_time = end_time - start_time
             total_time = reference_feature_time + current_feature_time
