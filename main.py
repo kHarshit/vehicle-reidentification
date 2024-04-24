@@ -12,12 +12,14 @@ from torchvision import models
 from torchreid.utils import FeatureExtractor
 from feature_extraction import *
 from similarity import *
+from paddleocr import PaddleOCR
 
 parser = argparse.ArgumentParser()
 parser.add_argument("-i", "--input", required=True, help="path to input video")
 parser.add_argument("-r", "--reference_img", required=True, help="path to reference image")
-parser.add_argument("-f", "--feature", default="hog", choices=["hog", "histogram", "sift", "resnet", "osnet", "composite"],
+parser.add_argument("-f", "--feature", default="sift", choices=["hog", "histogram", "sift", "resnet", "osnet", "composite", "anpr"],
                     help="Feature type to use for comparison")
+parser.add_argument("-anpr", "--anpr", default=None, type=str, help="number plate to match")
 args = parser.parse_args()
 
 # Similarity thresholds
@@ -81,6 +83,11 @@ elif args.feature == "composite":
         device='cpu'
     )
     reference_dnn_features = extract_torchreid_features(model_torchreid, reference_image)
+
+# ANPR OCR
+if args.anpr:
+    ocr = PaddleOCR(lang='en',rec_algorithm='CRNN')
+    lp_detector = YOLO("models/yolo_lpdet.pt")
 
 end_time = default_timer()
 reference_feature_time = end_time - start_time
@@ -167,6 +174,24 @@ while cap.isOpened():
                 comp_dist = composite_distance(good_matches, reference_keypoints, osnet_cosine_dist)
                 match = comp_dist < composite_threshold
 
+            if args.anpr:
+                plates = lp_detector(crop_img, verbose=False)
+                for plate in plates[0].boxes.data.tolist():
+                    lpx1, lpy1, lpx2, lpy2, lpscore, _ = plate
+                    # if lpscore > 0.4:
+                    lp_crop = crop_img[int(lpy1):int(lpy2), int(lpx1):int(lpx2)]
+                    ocr_result = ocr.ocr(lp_crop, cls=False, det=False)
+                    # print(f'OCR result: {ocr_result}')
+                    plate_text = ocr_result[0][0][0]  # Extracting text from the first result
+                    if plate_text == args.anpr:
+                        match = True
+                        plate_title = plate_text + " - matched"
+                    # else:
+                    #     # plate_title = plate_text + " - not matched"
+                    #     plate_text = ""
+                    # print(plate_title)
+                        cv2.putText(annotated_frame, plate_title, (int(x1), int(y1)+30), cv2.FONT_HERSHEY_SIMPLEX, 1.3, (0, 255, 0), 4)
+
             end_time = default_timer()
             current_feature_time = end_time - start_time
             total_time = reference_feature_time + current_feature_time
@@ -176,8 +201,8 @@ while cap.isOpened():
                 # id
                 print(f"Matched vehicle with ID: {track_ids[0]}")
                 # Draw a green rectangle around matched vehicles
-                cv2.rectangle(annotated_frame, (x1, y1), (x2, y2), (0, 255, 0), 3)  # Use xyxy format
-                cv2.putText(annotated_frame, 'Matched', (x1, y2), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 3)
+                cv2.rectangle(annotated_frame, (x1, y1-10), (x2, y2), (0, 255, 0), 3)  # Use xyxy format
+                cv2.putText(annotated_frame, f'{args.feature} matched', (x1, y2), cv2.FONT_HERSHEY_SIMPLEX, 1.3, (0, 255, 0), 4)
 
                 crop_name = f"frame_{frame_count}_ID_{results[0].boxes.id[i]}_{args.feature}.jpg"
                 crop_path = os.path.join(save_dir, crop_name)

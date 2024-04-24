@@ -9,3 +9,5 @@ torchreid
 gdown
 tensorboard
 git+https://github.com/KaiyangZhou/deep-person-reid.git
+paddlepaddle
+paddleocr

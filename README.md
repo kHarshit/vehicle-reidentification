@@ -1,6 +1,6 @@
 # vehicle-reidentification
 
-Vehicle Reidentification
+Vehicle Reidentification using YOLOv8 and feature-based similarity
 
 # Methods
 
@@ -10,6 +10,7 @@ Vehicle Reidentification
 4. ResNet (ImageNet pre-trained)
 5. OSNet (torchreid re-id multi-domain dataset pre-trained)
 6. Composite (SIFT + OSNet)
+7. License plate recognition
 
 # Installation
 
@@ -21,7 +22,7 @@ pip install -r requirements.txt
 
 ```
 (cs5330) ➜  vehicle-reidentification git:(main) ✗ python main.py -h
-usage: main.py [-h] -i INPUT -r REFERENCE_IMG [-f {hog,histogram,sift,resnet,osnet,composite}]
+usage: main.py [-h] -i INPUT -r REFERENCE_IMG [-f {hog,histogram,sift,resnet,osnet,composite,anpr}] [-anpr ANPR]
 
 options:
   -h, --help            show this help message and exit
@@ -29,13 +30,17 @@ options:
                         path to input video
   -r REFERENCE_IMG, --reference_img REFERENCE_IMG
                         path to reference image
-  -f {hog,histogram,sift,resnet,osnet,composite}, --feature {hog,histogram,sift,resnet,osnet,composite}
+  -f {hog,histogram,sift,resnet,osnet,composite,anpr}, --feature {hog,histogram,sift,resnet,osnet,composite,anpr}
                         Feature type to use for comparison
+  -anpr ANPR, --anpr ANPR
+                        number plate to match
 ```
 
 # Evaluation
+
+The percentage value represents the number of frames in which the vehicle was correctly identified out of the total number of frames the vehicle was present in the video. The percentage value is followed by the number of false positives (FP) encountered during the identification process.
   
-video name in brackets of Vehicle Type
+(video name in brackets of Vehicle Type, check [reference_vehicles/](./reference_vehicles/) and [videos/](./videos/) folders.)
 
 | Vehicle Type | Histogram | HOG | SIFT | ResNet | OSNet | Composite |
 | ------------ | --------- | --- | ------ | ---- | ----- | --------- |
@@ -60,3 +65,9 @@ video name in brackets of Vehicle Type
 | ResNet | 0.613 |
 | OSNet | 0.240 |
 | composite | 0.274 |
+
+# Contributors
+
+| Contributor 1 | Contributor 2 |
+| ------------- | ------------- |
+| [Harshit Kumar](https://github.com/kHarshit) | [Khushi Neema](https://github.com/Khushi-12)
