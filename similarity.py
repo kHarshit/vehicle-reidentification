@@ -34,17 +34,6 @@ def l2_distance(feature1, feature2):
     """
     return np.linalg.norm(feature1 - feature2)
 
-def compare_features(hog1, hog2, hist1, hist2, hog_threshold=0.5, histogram_threshold=0.2):
-    """
-    Compare HOG and color histogram features between two images.
-    """
-    hog_dist = l2_distance(hog1, hog2)
-    histogram_dist = histogram_distance(hist1, hist2)
-    print(f"HOG Distance: {hog_dist}, Histogram Distance: {histogram_dist}")
-    
-    # Check against thresholds
-    return hog_dist < hog_threshold and histogram_dist > histogram_threshold
-
 def cosine_distance(feature1, feature2):
     """
     Compute cosine distance between two features.
@@ -61,3 +50,23 @@ def cosine_distance(feature1, feature2):
     feature2 = feature2.reshape(1, -1)
     return 1 - cosine_similarity(feature1, feature2)[0][0]
 
+def composite_distance(sift_matches, reference_keypoints, osnet_distance, sift_weight=0.5, osnet_weight=0.5):
+    """
+    Calculate a weighted average of SIFT and OSNet distances.
+
+    Parameters:
+    sift_matches (list): List of SIFT matches
+    reference_keypoints (list): List of keypoints in the reference image
+    osnet_distance (float): Distance from OSNet model
+    sift_weight (float): Weight for SIFT distance
+    osnet_weight (float): Weight for OSNet distance
+
+    Returns:
+    float: Composite distance
+    """
+    # Normalize the SIFT matches to a comparable scale as cosine distance
+    normalized_sift_score = 1 - (len(sift_matches) / max(len(reference_keypoints), 1))
+    
+    # Weighted sum of distances
+    total_distance = sift_weight * normalized_sift_score + osnet_weight * osnet_distance
+    return total_distance
