@@ -6,6 +6,7 @@
 import cv2
 import os
 import argparse
+from timeit import default_timer
 from ultralytics import YOLO
 from torchvision import models
 from torchreid.utils import FeatureExtractor
@@ -21,11 +22,11 @@ args = parser.parse_args()
 
 # Similarity thresholds
 hog_threshold = 0.5
-histogram_threshold = 0.7
+histogram_threshold = 0.85
 cosine_threshold = 0.1
 
 # Initialize YOLO model
-model = YOLO("yolov8n.pt")
+model = YOLO("models/yolov8n.pt")
 cap = cv2.VideoCapture(args.input)
 
 # Directory for saving images of matched vehicles
@@ -44,6 +45,7 @@ if args.feature == "hog" or args.feature == "histogram":
     # Resize reference image
     reference_image = cv2.resize(reference_image, standard_size)
 
+start_time = default_timer()
 # Compute features for the reference image
 if args.feature == "hog":
     reference_hog_features = compute_hog_features(reference_image)
@@ -57,10 +59,12 @@ elif args.feature == "resnet":
 elif args.feature == "osnet":
     model_torchreid = FeatureExtractor(
         model_name='osnet_x1_0',
-        model_path='osnet_x1_0_imagenet.pth',
+        model_path='models/osnet_x1_0_imagenet.pth',
         device='cpu'
     )
     reference_dnn_features = extract_torchreid_features(model_torchreid, reference_image)
+end_time = default_timer()
+reference_feature_time = end_time - start_time
 
 # get vehicle classes: bicycle, car, motorcycle, airplane, bus, train, truck, boat
 # class_list = [1, 2, 3, 4, 5, 6, 7, 8]
@@ -93,6 +97,9 @@ while cap.isOpened():
                 crop_img = cv2.resize(crop_img, standard_size)  # Resize to standard size
 
             match = False
+            current_feature_time = 0.0
+            # time for feature extraction
+            start_time = default_timer()
             if args.feature == "hog":
                 # Compare HOG features
                 hog_features = compute_hog_features(crop_img)
@@ -112,7 +119,11 @@ while cap.isOpened():
                 dnn_features = extract_torchreid_features(model_torchreid, crop_img)
                 cosine_dist = cosine_distance(dnn_features, reference_dnn_features)
                 match = cosine_dist < cosine_threshold
-            
+            end_time = default_timer()
+            current_feature_time = end_time - start_time
+            total_time = reference_feature_time + current_feature_time
+            # print(f"Time taken for {args.feature}: {total_time:.3f}s")
+
             if match:
                 # id
                 print(f"Matched vehicle with ID: {track_ids[0]}")
