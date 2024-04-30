@@ -43,6 +43,12 @@ reference_image = cv2.imread(reference_image_path)
 if reference_image is None:
     raise FileNotFoundError(f"Reference image at {reference_image_path} not found.")
 
+# resizable window
+cv2.namedWindow("Reference Image", cv2.WINDOW_NORMAL)
+# Set the window size
+cv2.imshow("Reference Image", reference_image)
+cv2.resizeWindow("Reference Image", (200, 200))
+
 if args.feature == "hog" or args.feature == "histogram":
     # Standardize image size for feature extraction
     standard_size = (128, 64)  # Typical size used for HOG feature extraction
@@ -189,8 +195,18 @@ while cap.isOpened():
                     # else:
                     #     # plate_title = plate_text + " - not matched"
                     #     plate_text = ""
-                    # print(plate_title)
-                        cv2.putText(annotated_frame, plate_title, (int(x1), int(y1)+30), cv2.FONT_HERSHEY_SIMPLEX, 1.3, (0, 255, 0), 4)
+                        # Calculate the width and height of the text box
+                        (text_width, text_height) = cv2.getTextSize(plate_title, cv2.FONT_HERSHEY_SIMPLEX, 1.4, 4)[0]
+
+                        # Set the text start position
+                        text_start_x = int(x1)
+                        text_start_y = int(y1) + 30
+
+                        # Draw the filled rectangle
+                        cv2.rectangle(annotated_frame, (text_start_x, text_start_y - text_height), (text_start_x + text_width, text_start_y), (255, 255, 255), cv2.FILLED)
+
+                        # Put the text on the rectangle
+                        cv2.putText(annotated_frame, plate_title, (text_start_x, text_start_y), cv2.FONT_HERSHEY_SIMPLEX, 1.4, (0, 255, 0), 4)
 
             end_time = default_timer()
             current_feature_time = end_time - start_time
@@ -201,8 +217,14 @@ while cap.isOpened():
                 # id
                 print(f"Matched vehicle with ID: {track_ids[0]}")
                 # Draw a green rectangle around matched vehicles
+                (text_width, text_height) = cv2.getTextSize(f'{args.feature} matched', cv2.FONT_HERSHEY_SIMPLEX, 1.4, 4)[0]
+                text_start_x = int(x1)
+                text_start_y = int(y2)
+                cv2.rectangle(annotated_frame, (text_start_x, text_start_y - text_height), (text_start_x + text_width, text_start_y), (255, 255, 255), cv2.FILLED)
+                # Put the text on the rectangle
+                cv2.putText(annotated_frame, f'{args.feature} matched', (text_start_x, text_start_y), cv2.FONT_HERSHEY_SIMPLEX, 1.4, (0, 255, 0), 4)
+                # draw green rectangle
                 cv2.rectangle(annotated_frame, (x1, y1-10), (x2, y2), (0, 255, 0), 3)  # Use xyxy format
-                cv2.putText(annotated_frame, f'{args.feature} matched', (x1, y2), cv2.FONT_HERSHEY_SIMPLEX, 1.3, (0, 255, 0), 4)
 
                 crop_name = f"frame_{frame_count}_ID_{results[0].boxes.id[i]}_{args.feature}.jpg"
                 crop_path = os.path.join(save_dir, crop_name)
